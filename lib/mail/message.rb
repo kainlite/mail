@@ -1957,6 +1957,7 @@ module Mail
     end
 
   private
+    CONTENT_TYPE_REGEXP = /Content-Type:\s+multipart\/[\w\-\_]{1,20};.*?boundary="?([\d\w '\(\)\+_\,\-\.\/\:\=\?]{1,70})"?/mi
 
     #  2.1. General Description
     #   A message consists of header fields (collectively called "the header
@@ -1969,7 +1970,21 @@ module Mail
     # Additionally, I allow for the case where someone might have put whitespace
     # on the "gap line"
     def parse_message
-      header_part, body_part = raw_source.lstrip.split(/#{CRLF}#{CRLF}|#{CRLF}#{WSP}*#{CRLF}(?!#{WSP})/m, 2)
+      header_part, body_part = [nil, nil]
+      if match = raw_source[0..5000].match(CONTENT_TYPE_REGEXP)
+        boundary = match[1]
+
+        if location = raw_source =~ /#{CRLF}--#{boundary}#{CRLF}/m
+          header_part = raw_source[0..location-1]
+          header_part.rstrip!
+          body_part = raw_source[location..-1]
+          body_part.lstrip!
+        end
+      end
+
+      unless header_part
+        header_part, body_part = raw_source.lstrip.split(/#{CRLF}#{CRLF}|#{CRLF}#{WSP}*#{CRLF}(?!#{WSP})/m, 2)
+      end
       self.header = header_part
       self.body   = body_part
     end
@@ -2009,7 +2024,7 @@ module Mail
       raw_string = raw_source.to_s
       if match_data = raw_source.to_s.match(/\AFrom\s(#{TEXT}+)#{CRLF}/m)
         set_envelope(match_data[1])
-        self.raw_source = raw_string.sub(match_data[0], "") 
+        self.raw_source = raw_string.sub(match_data[0], "")
       end
     end
 

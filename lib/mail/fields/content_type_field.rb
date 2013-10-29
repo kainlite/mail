@@ -151,8 +151,9 @@ module Mail
 
       if val =~ /(boundary=(\S*))/i
         val = "#{$`.downcase}boundary=#{$2}#{$'.downcase}"
+        val.chomp.lstrip!
       else
-        val.downcase!
+        val.downcase!.chomp.lstrip!
       end
 
       case
